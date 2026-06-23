@@ -9,6 +9,7 @@ import { useAudio } from '../context/AudioContext';
 import GlassCard from '../components/GlassCard';
 import NeonButton from '../components/NeonButton';
 import AnimatedBackground from '../components/AnimatedBackground';
+import { SYMBOL_PACKS } from '../utils/constants';
 
 interface Move {
   row: number;
@@ -45,12 +46,7 @@ const GameScreen: React.FC = () => {
   const [showConfetti, setShowConfetti] = useState(false);
   const [symbolPack, setSymbolPack] = useState<'xoxo' | 'starHeart' | 'fireIce' | 'catDog'>('xoxo');
   
-  const symbolMaps = {
-    xoxo: { X: 'X', O: 'O' },
-    starHeart: { X: '⭐', O: '❤️' },
-    fireIce: { X: '🔥', O: '❄️' },
-    catDog: { X: '🐱', O: '🐶' },
-  };
+  const symbolMaps = SYMBOL_PACKS;
   
   const initializeBoard = useCallback(() => {
     const newBoard = [];
@@ -133,7 +129,11 @@ const GameScreen: React.FC = () => {
         
         if (isPlayerWin) {
           addXP(20);
-          updateStats({ wins: stats.wins + 1, winStreak: stats.winStreak + 1 });
+          updateStats({ 
+            wins: stats.wins + 1, 
+            winStreak: stats.winStreak + 1,
+            longestWinStreak: Math.max(stats.longestWinStreak, stats.winStreak + 1)
+          });
           checkAchievements('win', stats.wins + 1);
           checkAchievements('winStreak', stats.winStreak + 1);
           
@@ -163,14 +163,15 @@ const GameScreen: React.FC = () => {
         else if (gameWinner === 'O') newScore.opponent++;
         setTournamentScore(newScore);
         
-        const totalMatches = tournamentFormat === 'bestOf3' ? 2 : tournamentFormat === 'bestOf5' ? 3 : 4;
-        if (newScore.player > totalMatches || newScore.opponent > totalMatches) {
+        const winsNeeded = tournamentFormat === 'bestOf3' ? 2 : tournamentFormat === 'bestOf5' ? 3 : 4;
+        if (newScore.player >= winsNeeded || newScore.opponent >= winsNeeded) {
           if (newScore.player > newScore.opponent) {
             checkAchievements('tournamentWin');
             addXP(50);
           }
-          setGameOver(true);
+          // Tournament over - don't reset
         } else {
+          // Reset for next round
           setTournamentRound(tournamentRound + 1);
           setBoard(initializeBoard());
           setCurrentPlayer('X');
@@ -335,7 +336,7 @@ const GameScreen: React.FC = () => {
     newBoard[lastMove.row][lastMove.col] = null;
     setBoard(newBoard);
     setMoveHistory(moveHistory.slice(0, -1));
-    setCurrentPlayer(lastMove.player);
+    setCurrentPlayer(lastMove.player as 'X' | 'O');
     playSound('click');
   };
   
@@ -373,13 +374,13 @@ const GameScreen: React.FC = () => {
       {showConfetti && <ReactConfetti />}
       
       <div className="container mx-auto px-4 py-4 max-w-6xl">
-        <div className="flex justify-between items-center mb-4">
-          <NeonButton onClick={() => navigate(-1)} size="sm">
+        <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+          <NeonButton onClick={() => navigate('/game-modes')} size="sm">
             <ArrowLeft className="w-4 h-4 inline mr-2" />
             Exit
           </NeonButton>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <NeonButton onClick={undoMove} size="sm" variant="secondary">
               <Undo className="w-4 h-4" />
             </NeonButton>
@@ -397,7 +398,7 @@ const GameScreen: React.FC = () => {
         
         {timeLimit && (
           <div className="text-center mb-4">
-            <div className="text-2xl font-bold text-primary">Time Left: {timeLeft}s</div>
+            <div className="text-2xl font-bold text-primary">⏱️ Time Left: {timeLeft}s</div>
           </div>
         )}
         
@@ -472,7 +473,6 @@ const GameScreen: React.FC = () => {
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className="fixed inset-0 flex items-center justify-center z-50 bg-black/70 backdrop-blur-sm"
-            onClick={() => setGameOver(false)}
           >
             <GlassCard className="text-center max-w-md mx-4">
               <h2 className="text-3xl font-bold mb-4">
@@ -483,9 +483,14 @@ const GameScreen: React.FC = () => {
                     : `${symbolMaps[symbolPack].O} Wins!`
                 }
               </h2>
-              <NeonButton onClick={() => navigate('/game-modes')}>
-                Play Again
-              </NeonButton>
+              <div className="flex gap-3 justify-center">
+                <NeonButton onClick={() => navigate('/game-modes')}>
+                  Play Again
+                </NeonButton>
+                <NeonButton onClick={restartGame} variant="secondary">
+                  Rematch
+                </NeonButton>
+              </div>
             </GlassCard>
           </motion.div>
         )}
@@ -493,5 +498,3 @@ const GameScreen: React.FC = () => {
     </div>
   );
 };
-
-export default GameScreen;
