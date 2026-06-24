@@ -499,4 +499,4 @@ const GameScreen: React.FC = () => {
   );
 };
 
-
+export default GameScreen;
